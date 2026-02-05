@@ -1,0 +1,46 @@
+name: Catbox Pro Uploader
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'ضع رابط المقطع هنا'
+        required: true
+      file_name:
+        description: 'اكتب اسم المقطع'
+        required: true
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Transfer Video
+        run: |
+          # 1. تنظيف الاسم من المسافات وأي رموز غريبة (لضمان نجاح الرفع)
+          # سيتم حذف .mp4 لو كتبتها وإضافتها بشكل صحيح
+          CLEAN_NAME=$(echo "${{ github.event.inputs.file_name }}" | sed 's/\.mp4//g' | tr -cd '[:alnum:]_ ')
+          FINAL_FILE=$(echo "$CLEAN_NAME" | tr ' ' '_').mp4
+
+          echo "🚀 جاري معالجة الملف باسم: $FINAL_FILE"
+
+          # 2. تحميل المقطع (استخدام -k لتجاوز خطأ SSL certificate problem)
+          echo "⬇️ جاري تحميل المقطع من السيرفر..."
+          curl -kL "${{ github.event.inputs.video_url }}" -o "$FINAL_FILE"
+
+          # التأكد من أن الملف تم تحميله فعلياً وليس فارغاً
+          if [ ! -s "$FINAL_FILE" ]; then
+            echo "❌ خطأ: فشل تحميل الملف أو الرابط غير صالح"
+            exit 1
+          fi
+
+          # 3. الرفع لـ Catbox (استخدام -k أيضاً لضمان الأمان)
+          echo "📤 جاري الرفع إلى Catbox..."
+          # سحب الرابط المباشر وتخزينه في متغير
+          DIRECT_URL=$(curl -k -F "reqtype=fileupload" -F "fileToUpload=@$FINAL_FILE" https://catbox.moe/user/api.php)
+
+          # 4. النتيجة النهائية الصافية
+          echo "--------------------------------------------------"
+          echo "✅ تم الرفع بنجاح يا بطل!"
+          echo "🔗 الرابط المباشر الخاص بك هو:"
+          echo "$DIRECT_URL"
+          echo "--------------------------------------------------"
