@@ -1,41 +1,28 @@
 name: Upload Video to PixelDrain
 
 on:
-  push:
-    branches:
-      - main  # سيتم الرفع عند كل Push لفرع main
-  workflow_dispatch: # يتيح لك تشغيل العملية يدوياً من واجهة GitHub
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'ضع رابط تحميل الفيديو هنا (أو مساره)'
+        required: true
+        default: 'https://example.com/video.mp4'
 
 jobs:
   upload:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Upload Video to PixelDrain
-        id: upload_step
+      - name: Download Video
         run: |
-          # استبدل video.mp4 بمسار الفيديو الخاص بك في المستودع
-          FILE_PATH="video.mp4"
-          
-          echo "جاري رفع الفيديو: $FILE_PATH ..."
-          
-          # إرسال الملف عبر API الخاص بـ PixelDrain
-          RESPONSE=$(curl -F "file=@$FILE_PATH" https://pixeldrain.com/api/file)
-          
-          # استخراج معرف الملف (File ID) من النتيجة
+          # تحميل الفيديو من الرابط الذي وضعته في خانة الإدخال
+          curl -L "${{ github.event.inputs.video_url }}" -o "downloaded_video.mp4"
+
+      - name: Upload to PixelDrain
+        run: |
+          RESPONSE=$(curl -F "file=@downloaded_video.mp4" https://pixeldrain.com/api/file)
           FILE_ID=$(echo $RESPONSE | jq -r '.id')
           
-          if [ "$FILE_ID" != "null" ]; then
-            echo "تم الرفع بنجاح!"
-            echo "رابط صفحة الملف: https://pixeldrain.com/u/$FILE_ID"
-            echo "الرابط المباشر للفيديو: https://pixeldrain.com/api/file/$FILE_ID"
-            
-            # حفظ الرابط في متغير لاستخدامه في خطوات أخرى إذا أردت
-            echo "direct_link=https://pixeldrain.com/api/file/$FILE_ID" >> $GITHUB_OUTPUT
-          else
-            echo "حدث خطأ أثناء الرفع:"
-            echo $RESPONSE
-            exit 1
-          fi
+          echo "------------------------------------------"
+          echo "تمت العملية بنجاح!"
+          echo "الرابط المباشر: https://pixeldrain.com/api/file/$FILE_ID"
+          echo "------------------------------------------"
